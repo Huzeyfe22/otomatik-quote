@@ -21,6 +21,7 @@ interface CategoryCardProps {
     onMoveDown?: () => void;
     isFirst?: boolean;
     isLast?: boolean;
+    showExtrasCheckbox?: boolean;
 }
 
 const CategoryCard: React.FC<CategoryCardProps> = ({
@@ -35,7 +36,8 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
     onMoveUp,
     onMoveDown,
     isFirst,
-    isLast
+    isLast,
+    showExtrasCheckbox
 }) => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
@@ -200,8 +202,19 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
                             ) : (
                                 <>
                                     <div className="flex items-center justify-between">
-                                        <span className="font-medium text-slate-700 dark:text-slate-300">{item.name}</span>
-                                        <div className="flex gap-1">
+                                        <div className="flex items-center gap-2 overflow-hidden">
+                                            {showExtrasCheckbox && (
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!item.isExtras}
+                                                    onChange={(e) => onEditItem(item.id, { isExtras: e.target.checked })}
+                                                    className="h-3 w-3 flex-shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                                    title="Mark as Extra (No Dimensions)"
+                                                />
+                                            )}
+                                            <span className="truncate font-medium text-slate-700 dark:text-slate-300">{item.name}</span>
+                                        </div>
+                                        <div className="flex gap-1 flex-shrink-0">
                                             <button
                                                 onClick={() => startEditing(item)}
                                                 className="text-slate-400 hover:text-blue-600"
@@ -219,7 +232,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
                                         </div>
                                     </div>
                                     {item.hasDescription && (
-                                        <p className="text-[10px] text-slate-500">{item.description}</p>
+                                        <p className="text-[10px] text-slate-500 truncate">{item.description}</p>
                                     )}
                                 </>
                             )}
@@ -447,7 +460,8 @@ export const LibraryManager = () => {
                                             onDel: (id: string) => store.deleteSystemItem('productTypes', id),
                                             onEdit: (id: string, u: any) => store.updateSystemItem('productTypes', id, u),
                                             onRename: (n: string) => store.updateSystemCategoryLabel('productTypes', n),
-                                            isFixed: false // Now movable
+                                            isFixed: false, // Now movable
+                                            showExtrasCheckbox: true // Enabled specifically for Product Types
                                         };
                                     } else if (catId === 'sys_productSeries') {
                                         catData = {
@@ -502,6 +516,7 @@ export const LibraryManager = () => {
                                             onMoveDown={() => handleMoveCategory(index, 'down')}
                                             isFirst={index === 0}
                                             isLast={index === fullOrder.length - 1}
+                                            showExtrasCheckbox={catData.showExtrasCheckbox}
                                         />
                                     );
                                 });
@@ -652,6 +667,47 @@ export const LibraryManager = () => {
                                             className="block w-full text-sm text-slate-500 file:mr-4 file:rounded-full file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-300"
                                         />
                                         <p className="mt-1 text-xs text-slate-500">Upload a JPG or PNG image. It will be saved automatically.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Company Watermark (Optional)</label>
+                                <div className="flex items-center gap-4">
+                                    {store.companySettings.watermarkUrl && (
+                                        <div className="relative h-16 w-32 overflow-hidden rounded border border-slate-200 bg-slate-50">
+                                            <img
+                                                src={store.companySettings.watermarkUrl}
+                                                alt="Company Watermark"
+                                                className="h-full w-full object-contain opacity-50"
+                                            />
+                                            <button
+                                                onClick={() => store.updateCompanySettings({ watermarkUrl: '' })}
+                                                className="absolute right-1 top-1 rounded-full bg-red-500 p-1 text-white hover:bg-red-600"
+                                                title="Remove Watermark"
+                                            >
+                                                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    )}
+                                    <div className="flex-1">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onloadend = () => {
+                                                        store.updateCompanySettings({ watermarkUrl: reader.result as string });
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            }}
+                                            className="block w-full text-sm text-slate-500 file:mr-4 file:rounded-full file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-300"
+                                        />
+                                        <p className="mt-1 text-xs text-slate-500">Upload a separate image for the page watermark (e.g. transparent or faded logo).</p>
                                     </div>
                                 </div>
                             </div>

@@ -81,7 +81,7 @@ export const ChipGroup: React.FC<ChipGroupProps> = ({
                             </div>
 
                             {/* Description Tooltip / Subtext */}
-                            {item.hasDescription && item.description && (
+                            {item.description && (
                                 <p
                                     className={cn(
                                         "mt-1 text-[10px] line-clamp-2 pl-6 font-medium",

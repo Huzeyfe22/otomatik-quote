@@ -5,8 +5,12 @@ import { useStore } from '../store/useStore';
 import { ChipGroup } from './ChipGroup';
 import { LibraryEntity, QuoteItem } from '../types';
 import { cn } from '../lib/utils';
+import dynamic from 'next/dynamic';
 
-
+const DownloadPDFButton = dynamic(
+    () => import('./DownloadPDFButton').then((mod) => mod.DownloadPDFButton),
+    { ssr: false }
+);
 
 export const QuoteBuilder = () => {
     const store = useStore();
@@ -51,7 +55,6 @@ export const QuoteBuilder = () => {
 
     // Editing State
     const [editingItemId, setEditingItemId] = useState<string | null>(null);
-    const [showOpenModal, setShowOpenModal] = useState(false);
 
     // Validation State
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -64,76 +67,6 @@ export const QuoteBuilder = () => {
     const dimensionsRef = React.useRef<HTMLDivElement>(null);
     const descriptionRef = React.useRef<HTMLDivElement>(null);
     const pricingRef = React.useRef<HTMLDivElement>(null);
-    const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-    // File Import Handler
-    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const content = e.target?.result as string;
-                const importedQuote = JSON.parse(content);
-
-                // Basic validation
-                if (!importedQuote.id || !importedQuote.items) {
-                    alert('Invalid project file.');
-                    return;
-                }
-
-                // Update store
-                store.setQuote(importedQuote);
-
-                // Update local state
-                setClientName(importedQuote.client?.name || '');
-                setClientAddress(importedQuote.client?.address || '');
-                setQuoteName(importedQuote.name || 'Untitled Project');
-                setQuoteNumber(importedQuote.quoteNumber || '');
-
-                // Sync dates if present
-                if (importedQuote.quoteDate) {
-                    setQuoteDate(new Date(importedQuote.quoteDate).toISOString().slice(0, 10));
-                }
-
-                // Sync other meta
-                setShowQuoteName(importedQuote.showQuoteName ?? true);
-                setShowQuoteDate(importedQuote.showQuoteDate ?? true);
-                setExtraNotes(importedQuote.extraNotes || '');
-                setShowExtraNotes(importedQuote.showExtraNotes ?? false);
-
-                // Sync terms
-                const termsState: Record<string, string[]> = {};
-                if (importedQuote.selectedTerms) {
-                    Object.entries(importedQuote.selectedTerms).forEach(([catId, items]: [string, any]) => {
-                        termsState[catId] = Array.isArray(items) ? items.map((i: any) => i.id) : [];
-                    });
-                }
-                setSelectedTerms(termsState);
-
-                alert('Project loaded successfully!');
-            } catch (error) {
-                console.error('Error parsing project file:', error);
-                alert('Error loading project file. Please ensure it is a valid JSON file.');
-            }
-        };
-        reader.readAsText(file);
-        // Reset input
-        event.target.value = '';
-    };
-
-    // File Export Handler
-    const handleExport = () => {
-        if (!store.currentQuote) return;
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(store.currentQuote, null, 2));
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", `${store.currentQuote.name || 'project'}.json`);
-        document.body.appendChild(downloadAnchorNode); // required for firefox
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
-    };
 
     // Helper to scroll to next section
     const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
@@ -152,7 +85,7 @@ export const QuoteBuilder = () => {
         if (!store.currentQuote) {
             const newQuote: any = {
                 id: Date.now().toString(), // Simple ID
-                name: 'New Project',
+                name: 'New Quote',
                 client: { name: '', address: '', email: '', phone: '' },
                 items: [],
                 totalPrice: 0,
@@ -263,74 +196,39 @@ export const QuoteBuilder = () => {
         formTopRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    // Auto-hide dimensions for Extras
-    useEffect(() => {
-        if (selectedProductType?.isExtras) {
-            setShowDimensions(false);
-        } else if (selectedProductType) {
-            // Default to showing dimensions for non-extras
-            setShowDimensions(true);
-        }
-    }, [selectedProductType]);
-
     const handleAddItem = () => {
         const newErrors: Record<string, string> = {};
 
-        // This flag ("Checkbox") indicates that this Product Type is a "Simple Item" (Service, Extra, etc.)
-        // When true, we SKIP all detailed product definitions (Series, Dimensions, Unit, etc.)
-        const isSimpleItem = !!selectedProductType?.isExtras;
-
-        // 1. Core Requirement: Product Type
         if (!selectedProductType) newErrors.productType = 'Product Type is required';
+        if (!selectedSeries) newErrors.productSeries = 'Product Series is required';
 
-        // 2. Detailed Product Validation (Only if NOT a simple item)
-        if (!isSimpleItem) {
-            // Series is required for full products
-            if (!selectedSeries) {
-                newErrors.productSeries = 'Product Series is required';
-            }
-
-            // Dimensions are required if shown
-            if (showDimensions) {
-                if (width <= 0) newErrors.width = 'Width must be greater than 0';
-                if (height <= 0) newErrors.height = 'Height must be greater than 0';
-                if (!selectedUnit) newErrors.unit = 'Unit is required';
-            }
-
-            // Future: If you add validations for other product details (Attributes, etc.), add them HERE.
+        if (showDimensions) {
+            if (width <= 0) newErrors.width = 'Width must be greater than 0';
+            if (height <= 0) newErrors.height = 'Height must be greater than 0';
+            if (!selectedUnit) newErrors.unit = 'Unit is required';
         }
 
-        // 3. Financial Validation
         if (price < 0) newErrors.price = 'Price cannot be negative';
 
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
+            // Scroll to the first error or form top
             formTopRef.current?.scrollIntoView({ behavior: 'smooth' });
             return;
         }
 
         const itemData = {
             productType: selectedProductType!,
-
-            // If Simple Item, use Dummy Series. If Full Product, Series is guaranteed by validation above.
-            productSeries: selectedSeries || { id: 's_simple', name: '', hasDescription: false, isExtras: true },
-
+            productSeries: selectedSeries!,
             attributes: selectedAttributes,
             description,
-
-            // Default to 0 for simple items
-            width: width || 0,
-            height: height || 0,
-
-            // Default unit for simple items
-            unit: selectedUnit || (store.units.length > 0 ? store.units[0] : { id: 'u_na', name: '-', hasDescription: false }),
-
+            width,
+            height,
+            unit: selectedUnit!,
             quantity,
             price,
             hasScreen,
-
-            // Force hide dimensions in output if Simple Item
-            showDimensions: showDimensions && !isSimpleItem
+            showDimensions
         };
 
         try {
@@ -428,9 +326,9 @@ export const QuoteBuilder = () => {
             {/* HEADER */}
             <div className="mb-6 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    {(store.companySettings.logo || store.companySettings.logoUrl) && (
+                    {store.companySettings.logoUrl && (
                         <img
-                            src={store.companySettings.logo || store.companySettings.logoUrl}
+                            src={store.companySettings.logoUrl}
                             alt="Company Logo"
                             className="h-12 w-auto object-contain"
                         />
@@ -441,42 +339,18 @@ export const QuoteBuilder = () => {
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileUpload}
-                        className="hidden"
-                        accept=".json"
-                    />
                     <button
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={store.saveCurrentQuote}
                         className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                     >
-                        Load File
+                        Save Draft
                     </button>
-                    <button
-                        onClick={() => setShowOpenModal(true)}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                        Recent Projects
-                    </button>
-
                     <button
                         onClick={() => {
-                            store.saveCurrentQuote(); // Also save to local storage for convenience
-                            handleExport();
-                        }}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                        Save Project
-                    </button>
-
-                    <button
-                        onClick={() => {
-                            if (confirm('Are you sure you want to start a new project? Unsaved changes will be lost.')) {
+                            if (confirm('Are you sure you want to start a new quote? Unsaved changes will be lost.')) {
                                 store.setQuote({
                                     id: crypto.randomUUID(),
-                                    name: 'New Project',
+                                    name: 'New Quote',
                                     quoteNumber: '',
                                     client: { name: '', address: '', email: '', phone: '' },
                                     items: [],
@@ -495,7 +369,7 @@ export const QuoteBuilder = () => {
                                 });
                                 setClientName('');
                                 setClientAddress('');
-                                setQuoteName('New Project');
+                                setQuoteName('New Quote');
                                 setQuoteNumber('');
                                 setIsAutoNumber(false);
                                 setQuoteDate(new Date().toISOString().slice(0, 10));
@@ -509,136 +383,103 @@ export const QuoteBuilder = () => {
                         }}
                         className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
                     >
-                        New Project
+                        New Quote
                     </button>
                 </div>
             </div>
 
-            {/* SECTION 1: CLIENT & PROJECT INFO */}
-            <div className="rounded-xl border-l-4 border-l-blue-600 border-y border-r border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div className="mb-4 flex items-center gap-2">
+            {/* PROJECT INFO */}
+            <div className="mb-6 rounded-xl border-l-4 border-l-blue-500 border-y border-r border-slate-200 bg-blue-50/30 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div className="mb-3 flex items-center gap-2">
                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
                         <span className="font-bold">1</span>
                     </div>
-                    <h2 className="text-base font-bold text-slate-900 dark:text-white">Project Details</h2>
+                    <h2 className="text-base font-bold text-slate-900 dark:text-white">Project Information</h2>
                 </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    {/* ROW 1: Project Name & Quote Number */}
-                    <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-500 uppercase">Project Name</label>
-                        <input
-                            type="text"
-                            value={quoteName}
-                            onChange={(e) => {
-                                setQuoteName(e.target.value);
-                                store.updateQuoteInfo({ name: e.target.value });
-                            }}
-                            className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700"
-                            placeholder="e.g. Villa Renovation"
-                        />
-                    </div>
+                    {/* Quote Name & Date Row - Full Width Container */}
+                    <div className="col-span-1 md:col-span-2 lg:col-span-4 flex flex-wrap gap-4">
+                        <div className="flex-1 min-w-[250px]">
+                            <div className="mb-1 flex items-center justify-between">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Quote Name</label>
+                                <label className="flex items-center gap-1 text-xs text-slate-500">
+                                    <input
+                                        type="checkbox"
+                                        checked={showQuoteName}
+                                        onChange={(e) => {
+                                            setShowQuoteName(e.target.checked);
+                                            store.updateQuoteMeta({ showQuoteName: e.target.checked });
+                                        }}
+                                        className="rounded border-slate-300"
+                                    />
+                                    Show in PDF
+                                </label>
+                            </div>
+                            <input
+                                type="text"
+                                value={quoteName}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\b\w/g, c => c.toUpperCase());
+                                    setQuoteName(val);
+                                    store.updateQuoteName(val);
+                                }}
+                                className={cn(
+                                    "w-full rounded-lg border p-2 dark:bg-slate-800",
+                                    !showQuoteName ? "border-slate-200 text-slate-400" : "border-slate-300"
+                                )}
+                            />
+                        </div>
 
-                    <div className="flex gap-2">
-                        <div className="flex-1">
-                            <label className="mb-1 block text-xs font-bold text-slate-500 uppercase">Quote Number</label>
+                        <div className="flex-1 min-w-[200px]">
+                            <div className="mb-1 flex items-center justify-between">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Quote No</label>
+                                <label className="flex items-center gap-1 text-xs text-slate-500">
+                                    <input
+                                        type="checkbox"
+                                        checked={isAutoNumber}
+                                        onChange={(e) => {
+                                            setIsAutoNumber(e.target.checked);
+                                            if (e.target.checked) {
+                                                const nextNum = store.generateNextQuoteNumber();
+                                                setQuoteNumber(nextNum);
+                                                store.updateQuoteNumber(nextNum);
+                                            }
+                                        }}
+                                        className="rounded border-slate-300"
+                                    />
+                                    Auto
+                                </label>
+                            </div>
                             <input
                                 type="text"
                                 value={quoteNumber}
-                                disabled={isAutoNumber}
                                 onChange={(e) => {
                                     setQuoteNumber(e.target.value);
-                                    store.updateQuoteInfo({ quoteNumber: e.target.value });
+                                    store.updateQuoteNumber(e.target.value);
+                                    if (isAutoNumber) setIsAutoNumber(false); // Disable auto if manually edited
                                 }}
-                                className={cn(
-                                    "w-full rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700",
-                                    isAutoNumber && "opacity-50 cursor-not-allowed"
-                                )}
-                                placeholder="Q-2024-001"
-                            />
-                        </div>
-                        <div className="flex items-end pb-3">
-                            <label className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-400 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={isAutoNumber}
-                                    onChange={(e) => {
-                                        setIsAutoNumber(e.target.checked);
-                                        if (e.target.checked) {
-                                            const autoNum = `Q-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
-                                            setQuoteNumber(autoNum);
-                                            store.updateQuoteInfo({ quoteNumber: autoNum });
-                                        }
-                                    }}
-                                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                Auto
-                            </label>
-                        </div>
-                    </div>
-
-                    {/* ROW 2: Client Name & Address */}
-                    <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-500 uppercase">Client Name</label>
-                        <input
-                            type="text"
-                            value={clientName}
-                            onChange={(e) => {
-                                setClientName(e.target.value);
-                                store.updateClientInfo({ name: e.target.value });
-                            }}
-                            className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700"
-                            placeholder="Client Name / Company"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="mb-1 block text-xs font-bold text-slate-500 uppercase">Client Address</label>
-                        <input
-                            type="text"
-                            value={clientAddress}
-                            onChange={(e) => {
-                                setClientAddress(e.target.value);
-                                store.updateClientInfo({ address: e.target.value });
-                            }}
-                            className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700"
-                            placeholder="Full Address"
-                        />
-                    </div>
-
-                    {/* ROW 3: Email & Phone (New) */}
-                    <div className="flex gap-2">
-                        <div className="flex-1">
-                            <label className="mb-1 block text-xs font-bold text-slate-500 uppercase">Client Email</label>
-                            <input
-                                type="email"
-                                value={store.currentQuote?.client?.email || ''}
-                                onChange={(e) => store.updateClientInfo({ email: e.target.value })}
-                                className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700"
-                                placeholder="email@example.com"
+                                className="w-full rounded-lg border border-slate-300 p-2 dark:bg-slate-800"
+                                placeholder="e.g. 20240501/1"
                             />
                         </div>
 
-                    </div>
-
-                    <div className="flex gap-2">
-                        <div className="flex-1">
-                            <label className="mb-1 block text-xs font-bold text-slate-500 uppercase">Client Phone</label>
-                            <input
-                                type="tel"
-                                value={store.currentQuote?.client?.phone || ''}
-                                onChange={(e) => store.updateClientInfo({ phone: e.target.value })}
-                                className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700"
-                                placeholder="(555) 123-4567"
-                            />
-                        </div>
-
-                    </div>
-
-                    {/* ROW 4: Date & Cover Page */}
-                    <div className="flex gap-2">
-                        <div className="flex-1">
-                            <label className="mb-1 block text-xs font-bold text-slate-500 uppercase">Date</label>
+                        <div className="w-full sm:w-auto min-w-[160px]">
+                            <div className="mb-1 flex items-center justify-between">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Date</label>
+                                <label className="flex items-center gap-1 text-xs text-slate-500">
+                                    <input
+                                        type="checkbox"
+                                        checked={showQuoteDate}
+                                        onChange={(e) => {
+                                            setShowQuoteDate(e.target.checked);
+                                            store.updateQuoteMeta({ showQuoteDate: e.target.checked });
+                                        }}
+                                        className="rounded border-slate-300"
+                                    />
+                                    Show
+                                </label>
+                            </div>
                             <input
                                 type="date"
                                 value={quoteDate}
@@ -646,16 +487,42 @@ export const QuoteBuilder = () => {
                                     setQuoteDate(e.target.value);
                                     store.updateQuoteMeta({ quoteDate: new Date(e.target.value) });
                                 }}
-                                className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-700"
+                                className={cn(
+                                    "w-full rounded-lg border p-2 dark:bg-slate-800",
+                                    !showQuoteDate ? "border-slate-200 text-slate-400" : "border-slate-300"
+                                )}
                             />
                         </div>
-
                     </div>
 
-
+                    <div>
+                        <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Client Name</label>
+                        <input
+                            type="text"
+                            value={clientName}
+                            onChange={(e) => {
+                                const val = e.target.value.replace(/\b\w/g, c => c.toUpperCase());
+                                setClientName(val);
+                                store.updateClientInfo({ name: val });
+                            }}
+                            className="w-full rounded-lg border border-slate-300 p-2 dark:bg-slate-800"
+                        />
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Client Address</label>
+                        <textarea
+                            value={clientAddress}
+                            onChange={(e) => {
+                                const val = e.target.value.replace(/\b\w/g, c => c.toUpperCase());
+                                setClientAddress(val);
+                                store.updateClientInfo({ address: val });
+                            }}
+                            className="w-full rounded-lg border border-slate-300 p-2 dark:bg-slate-800"
+                            rows={2}
+                        />
+                    </div>
                 </div>
             </div>
-
 
             {/* ITEM BUILDER */}
             <div ref={formTopRef} className="mb-6 rounded-xl border-l-4 border-l-emerald-500 border-y border-r border-slate-200 bg-emerald-50/30 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -929,7 +796,7 @@ export const QuoteBuilder = () => {
 
 
                 </div>
-            </div >
+            </div>
 
             {/* ADDED ITEMS LIST */}
             {
@@ -1051,59 +918,17 @@ export const QuoteBuilder = () => {
 
                             {/* TOTALS SUMMARY */}
                             <div className="mt-6 flex flex-col items-end gap-1 border-t border-slate-200 pt-4 dark:border-slate-700">
-                                <div className="mb-4 flex items-center gap-2">
-                                    <label className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={store.currentQuote?.isManualPricing || false}
-                                            onChange={(e) => {
-                                                store.updateQuoteMeta({ isManualPricing: e.target.checked });
-                                                // If enabling, default manualSubtotal to current calculated total if not set
-                                                if (e.target.checked && store.currentQuote?.manualSubtotal === undefined) {
-                                                    store.updateQuoteMeta({ manualSubtotal: store.currentQuote?.totalPrice });
-                                                }
-                                            }}
-                                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                                        />
-                                        Direct Total (Manual)
-                                    </label>
-                                </div>
-
-                                <div className="flex w-full max-w-xs justify-between text-slate-600 dark:text-slate-400 items-center">
+                                <div className="flex w-full max-w-xs justify-between text-slate-600 dark:text-slate-400">
                                     <span>Subtotal:</span>
-                                    {store.currentQuote?.isManualPricing ? (
-                                        <div className="relative w-32">
-                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                                            <input
-                                                type="number"
-                                                value={store.currentQuote?.manualSubtotal ?? ''}
-                                                onChange={(e) => store.updateQuoteMeta({ manualSubtotal: parseFloat(e.target.value) })}
-                                                className="w-full rounded border border-slate-300 py-1 pl-6 pr-2 text-right text-sm font-bold focus:border-blue-500 focus:outline-none dark:bg-slate-800 dark:border-slate-600"
-                                            />
-                                        </div>
-                                    ) : (
-                                        <span>${store.currentQuote?.totalPrice.toLocaleString()}</span>
-                                    )}
+                                    <span>${store.currentQuote.totalPrice.toLocaleString()}</span>
                                 </div>
                                 <div className="flex w-full max-w-xs justify-between text-slate-600 dark:text-slate-400">
                                     <span>Tax ({store.companySettings.taxRate}%):</span>
-                                    <span>
-                                        ${(
-                                            (store.currentQuote?.isManualPricing && store.currentQuote?.manualSubtotal !== undefined
-                                                ? store.currentQuote.manualSubtotal
-                                                : (store.currentQuote?.totalPrice || 0)) * (store.companySettings.taxRate / 100)
-                                        ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
+                                    <span>${(store.currentQuote.totalPrice * (store.companySettings.taxRate / 100)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                                 <div className="flex w-full max-w-xs justify-between text-xl font-bold text-slate-900 dark:text-white">
                                     <span>Grand Total:</span>
-                                    <span className="text-blue-600">
-                                        ${(
-                                            (store.currentQuote?.isManualPricing && store.currentQuote?.manualSubtotal !== undefined
-                                                ? store.currentQuote.manualSubtotal
-                                                : (store.currentQuote?.totalPrice || 0)) * (1 + store.companySettings.taxRate / 100)
-                                        ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
+                                    <span className="text-blue-600">${(store.currentQuote.totalPrice * (1 + store.companySettings.taxRate / 100)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
                         </div>
@@ -1165,61 +990,17 @@ export const QuoteBuilder = () => {
                 </div>
             </div>
 
-
-
-            {/* DOWNLOAD BUTTONS REMOVED - Moved to Sidebar Navigation Modules */}
-
-            {/* OPEN PROJECT MODAL */}
-            {showOpenModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-                    <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
-                        <div className="mb-6 flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Open Project</h2>
-                            <button onClick={() => setShowOpenModal(false)} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white">
-                                ✕
-                            </button>
-                        </div>
-
-                        <div className="max-h-[60vh] overflow-y-auto space-y-2">
-                            {store.savedQuotes.length === 0 ? (
-                                <p className="text-center text-slate-500 py-8">No saved projects found.</p>
-                            ) : (
-                                store.savedQuotes.map(quote => (
-                                    <div key={quote.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-4 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50">
-                                        <div>
-                                            <h3 className="font-bold text-slate-900 dark:text-white">{quote.name}</h3>
-                                            <p className="text-xs text-slate-500">
-                                                {new Date(quote.updatedAt).toLocaleDateString()} • {quote.items.length} Items • ${quote.totalPrice.toLocaleString()}
-                                            </p>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => {
-                                                    store.loadQuote(quote.id);
-                                                    setShowOpenModal(false);
-                                                }}
-                                                className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700"
-                                            >
-                                                Open
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    if (confirm('Delete this project?')) {
-                                                        store.deleteSavedQuote(quote.id);
-                                                    }
-                                                }}
-                                                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50"
-                                            >
-                                                Delete
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div >
+            {/* DOWNLOAD BUTTON */}
+            <div className="fixed bottom-6 right-6 z-50">
+                {store.currentQuote && (
+                    <DownloadPDFButton
+                        quote={store.currentQuote}
+                        categories={store.attributeCategories}
+                        termCategories={store.termCategories}
+                        companySettings={store.companySettings}
+                    />
+                )}
+            </div>
+        </div>
     );
 };

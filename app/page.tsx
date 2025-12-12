@@ -3,13 +3,24 @@
 import React, { useState, useEffect } from 'react';
 import { QuoteBuilder } from '../components/QuoteBuilder';
 import { LibraryManager } from '../components/LibraryManager';
+import { ContractPreview } from '../components/ContractPreview';
+import { QuotePreview } from '../components/QuotePreview';
+import { useStore } from '../store/useStore';
 import { cn } from '../lib/utils';
 
 export default function Home() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
-    const [activeTab, setActiveTab] = useState<'quote' | 'library'>('quote');
+
+    // Navigation State
+    // 'dashboard' = QuoteBuilder (Main Input)
+    // 'quote-preview' = QuotePreview (PDF Edit)
+    // 'contract' = ContractPreview (Contract Edit)
+    // 'library' = LibraryManager
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'quote-preview' | 'contract' | 'library'>('dashboard');
+
+    const store = useStore();
 
     // Check session storage on mount
     useEffect(() => {
@@ -19,9 +30,13 @@ export default function Home() {
         }
     }, []);
 
+    // Hydration for store
+    useEffect(() => {
+        useStore.persist.rehydrate();
+    }, []);
+
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
-        // BASIT SIFRE: Burayi istediginiz sifre ile degistirebilirsiniz
         if (password === "admin123" || password === "1234") {
             setIsAuthenticated(true);
             sessionStorage.setItem("is_authenticated", "true");
@@ -56,7 +71,7 @@ export default function Home() {
                                 autoFocus
                             />
                         </div>
-                        
+
                         {error && (
                             <div className="text-red-400 text-sm text-center bg-red-400/10 p-2 rounded-lg">
                                 {error}
@@ -90,26 +105,66 @@ export default function Home() {
 
                     {/* Navigation */}
                     <nav className="mt-6 flex flex-col gap-2 px-4">
+                        <div className="mb-2 px-2 text-xs font-bold text-blue-300 uppercase tracking-wider">Main</div>
                         <button
-                            onClick={() => setActiveTab('quote')}
+                            onClick={() => setActiveTab('dashboard')}
                             className={cn(
-                                "flex w-full items-center rounded-lg px-4 py-3 text-sm font-medium transition-all",
-                                activeTab === 'quote'
+                                "flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all",
+                                activeTab === 'dashboard'
                                     ? "bg-blue-800 text-white shadow-md ring-1 ring-blue-700"
                                     : "text-blue-200 hover:bg-blue-800/50 hover:text-white"
                             )}
                         >
-                            Quote Studio
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                            </svg>
+                            Dashboard
                         </button>
+
+                        <div className="mt-4 mb-2 px-2 text-xs font-bold text-blue-300 uppercase tracking-wider">Documents</div>
+                        <button
+                            onClick={() => setActiveTab('quote-preview')}
+                            className={cn(
+                                "flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all",
+                                activeTab === 'quote-preview'
+                                    ? "bg-blue-800 text-white shadow-md ring-1 ring-blue-700"
+                                    : "text-blue-200 hover:bg-blue-800/50 hover:text-white"
+                            )}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Quote
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('contract')}
+                            className={cn(
+                                "flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all",
+                                activeTab === 'contract'
+                                    ? "bg-blue-800 text-white shadow-md ring-1 ring-blue-700"
+                                    : "text-blue-200 hover:bg-blue-800/50 hover:text-white"
+                            )}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                            </svg>
+                            Contract
+                        </button>
+
+                        <div className="mt-4 mb-2 px-2 text-xs font-bold text-blue-300 uppercase tracking-wider">Settings</div>
                         <button
                             onClick={() => setActiveTab('library')}
                             className={cn(
-                                "flex w-full items-center rounded-lg px-4 py-3 text-sm font-medium transition-all",
+                                "flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all",
                                 activeTab === 'library'
                                     ? "bg-blue-800 text-white shadow-md ring-1 ring-blue-700"
                                     : "text-blue-200 hover:bg-blue-800/50 hover:text-white"
                             )}
                         >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
                             Library Settings
                         </button>
                     </nav>
@@ -120,11 +175,11 @@ export default function Home() {
                     <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-blue-800" />
                         <div className="text-xs text-blue-300">
-                            <p className="font-medium text-white">v1.0.0</p>
+                            <p className="font-medium text-white">v1.1.0</p>
                             <p>Canada Edition</p>
                         </div>
                     </div>
-                    <button 
+                    <button
                         onClick={() => {
                             sessionStorage.removeItem("is_authenticated");
                             setIsAuthenticated(false);
@@ -137,13 +192,46 @@ export default function Home() {
             </aside>
 
             {/* Main Content Area */}
-            <div className="flex-1 overflow-y-auto p-8">
-                {activeTab === 'quote' ? (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex-1 overflow-y-auto p-0">
+                {activeTab === 'dashboard' && (
+                    <div className="p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <QuoteBuilder />
                     </div>
-                ) : (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                )}
+
+                {activeTab === 'quote-preview' && (
+                    <div className="h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {store.currentQuote ? (
+                            <QuotePreview
+                                quote={store.currentQuote}
+                                companySettings={store.companySettings}
+                            />
+                        ) : (
+                            <div className="flex h-full items-center justify-center text-slate-500">
+                                No active quote. Please create one in the Dashboard.
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeTab === 'contract' && (
+                    <div className="h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {store.currentQuote ? (
+                            <ContractPreview
+                                quote={store.currentQuote}
+                                companySettings={store.companySettings}
+                                onClose={() => setActiveTab('dashboard')}
+                            />
+                        ) : (
+                            <div className="flex h-full items-center justify-center text-slate-500">
+                                No active quote. Please create one in the Dashboard.
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeTab === 'library' && (
+                    <div className="p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <LibraryManager />
                     </div>
                 )}

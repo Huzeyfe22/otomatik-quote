@@ -79,7 +79,8 @@ export interface AppState {
     updateQuoteNumber: (quoteNumber: string) => void;
     generateNextQuoteNumber: () => string;
     updateQuoteName: (name: string) => void;
-    updateQuoteMeta: (meta: Partial<Pick<Quote, 'name' | 'quoteDate' | 'showQuoteName' | 'showQuoteDate'>>) => void;
+    updateQuoteInfo: (info: Partial<Pick<Quote, 'name' | 'quoteNumber'>>) => void; // Added generic update
+    updateQuoteMeta: (meta: Partial<Quote>) => void;
     updateExtraNotes: (notes: string, show: boolean) => void;
     toggleCoverPage: (enabled: boolean) => void;
 
@@ -104,7 +105,12 @@ export const useStore = create<AppState>()(
         (set, get) => ({
             productTypes: [],
             productSeries: [],
-            units: [],
+            units: [
+                { id: 'u_mm', name: 'mm', hasDescription: false },
+                { id: 'u_cm', name: 'cm', hasDescription: false },
+                { id: 'u_in', name: 'in', hasDescription: false },
+                { id: 'u_ft', name: 'ft', hasDescription: false }
+            ],
             attributeCategories: [],
 
             // Initialize with default Term Categories
@@ -121,13 +127,16 @@ export const useStore = create<AppState>()(
                 address: '',
                 email: '',
                 phone: '',
+                website: '',
+                logo: '',
                 logoUrl: '',
                 taxRate: 0,
                 categoryLabels: {
                     'productTypes': 'Product Type',
                     'productSeries': 'Product Series',
                     'units': 'Units'
-                }
+                },
+                geminiApiKey: ''
             },
             currentQuote: null,
             savedQuotes: [],
@@ -352,6 +361,12 @@ export const useStore = create<AppState>()(
                 if (!state.currentQuote) return state;
                 return {
                     currentQuote: { ...state.currentQuote, name, updatedAt: new Date() }
+                };
+            }),
+            updateQuoteInfo: (info) => set((state) => {
+                if (!state.currentQuote) return state;
+                return {
+                    currentQuote: { ...state.currentQuote, ...info, updatedAt: new Date() }
                 };
             }),
             updateQuoteMeta: (meta) => set((state) => {
