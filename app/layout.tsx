@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-    title: "EliteQuote Builder",
-    description: "Premium Price Quotation & Contract Generator",
+    title: "Aluminum Station App",
+    description: "Premium Aluminum Systems Quotation & Contract Generator",
 };
 
 export default function RootLayout({
