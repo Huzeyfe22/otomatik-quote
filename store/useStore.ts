@@ -92,6 +92,7 @@ export interface AppState {
 
     // Library Import/Export
     importLibrary: (data: Partial<AppState>) => void;
+    resetLibrary: () => void;
 }
 
 const dummyStorage = {
@@ -100,10 +101,14 @@ const dummyStorage = {
     removeItem: () => { },
 };
 
+// Simple ID generator
+const generateId = () => Math.random().toString(36).substring(2, 15);
+
 export const useStore = create<AppState>()(
     persist(
         (set, get) => ({
             productTypes: [],
+            // ... (keep initial state same, will be reset by storage change)
             productSeries: [],
             units: [
                 { id: 'u_mm', name: 'mm', hasDescription: false },
@@ -163,7 +168,7 @@ export const useStore = create<AppState>()(
 
             // Attribute Category Actions
             addAttributeCategory: (name, type = 'single') => set((state) => {
-                const newId = crypto.randomUUID();
+                const newId = generateId();
                 const currentOrder = state.companySettings.categoryOrder || [
                     'sys_productTypes', 'sys_productSeries', 'sys_units',
                     ...state.attributeCategories.map(c => c.id)
@@ -219,7 +224,7 @@ export const useStore = create<AppState>()(
             // Term Category Actions
             addTermCategory: (name, type) => set((state) => ({
                 termCategories: [...state.termCategories, {
-                    id: crypto.randomUUID(),
+                    id: generateId(),
                     name,
                     type,
                     items: []
@@ -295,7 +300,7 @@ export const useStore = create<AppState>()(
                 if (!state.currentQuote) return state;
                 const itemToDuplicate = state.currentQuote.items.find((i) => i.id === itemId);
                 if (!itemToDuplicate) return state;
-                const newItem = { ...itemToDuplicate, id: crypto.randomUUID() };
+                const newItem = { ...itemToDuplicate, id: generateId() };
                 const newQuote = {
                     ...state.currentQuote,
                     items: [...state.currentQuote.items, newItem],
@@ -415,7 +420,7 @@ export const useStore = create<AppState>()(
                 if (!quoteToDuplicate) return state;
                 const newQuote = {
                     ...quoteToDuplicate,
-                    id: crypto.randomUUID(),
+                    id: generateId(),
                     name: `${quoteToDuplicate.name} (Copy)`,
                     createdAt: new Date(),
                     updatedAt: new Date()
@@ -429,6 +434,41 @@ export const useStore = create<AppState>()(
                 // Ensure termCategories are merged or preserved if missing in import
                 termCategories: data.termCategories || state.termCategories
             })),
+
+            resetLibrary: () => set({
+                productTypes: [],
+                productSeries: [],
+                units: [
+                    { id: 'u_mm', name: 'mm', hasDescription: false },
+                    { id: 'u_cm', name: 'cm', hasDescription: false },
+                    { id: 'u_in', name: 'in', hasDescription: false },
+                    { id: 'u_ft', name: 'ft', hasDescription: false }
+                ],
+                attributeCategories: [],
+                termCategories: [
+                    { id: 'inclusions', name: 'Inclusions', type: 'multiple', items: [] },
+                    { id: 'exclusions', name: 'Exclusions', type: 'multiple', items: [] },
+                    { id: 'paymentTerms', name: 'Payment Terms', type: 'multiple', items: [] },
+                    { id: 'leadTime', name: 'Lead Time', type: 'single', items: [] },
+                    { id: 'validity', name: 'Validity', type: 'single', items: [] },
+                ],
+                companySettings: {
+                    name: '',
+                    address: '',
+                    email: '',
+                    phone: '',
+                    website: '',
+                    logo: '',
+                    logoUrl: '',
+                    taxRate: 0,
+                    categoryLabels: {
+                        'productTypes': 'Product Type',
+                        'productSeries': 'Product Series',
+                        'units': 'Units'
+                    },
+                    geminiApiKey: ''
+                }
+            })
         }),
         {
             name: 'elite-quote-storage',

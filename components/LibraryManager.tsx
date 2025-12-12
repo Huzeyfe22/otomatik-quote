@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { saveAs } from 'file-saver';
 import { useStore } from '../store/useStore';
 import { LibraryEntity } from '../types';
 import { cn } from '../lib/utils';
@@ -311,9 +310,17 @@ export const LibraryManager = () => {
                 companySettings: store.companySettings,
             };
 
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "text/plain;charset=utf-8" });
-            const dateStr = new Date().toISOString().split('T')[0];
-            saveAs(blob, `aluminum_station_library_${dateStr}.json`);
+            const jsonString = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonString], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `aluminum_station_library_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
 
         } catch (err) {
             console.error('Export failed:', err);
