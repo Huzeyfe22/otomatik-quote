@@ -362,7 +362,30 @@ export const LibraryManager = () => {
                         onClick={handleExport}
                         className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                     >
-                        Export JSON
+                        Export File
+                    </button>
+                    <button
+                        onClick={() => {
+                            const data = {
+                                productTypes: store.productTypes,
+                                productSeries: store.productSeries,
+                                units: store.units,
+                                attributeCategories: store.attributeCategories,
+                                termCategories: store.termCategories,
+                                companySettings: store.companySettings,
+                            };
+                            const json = JSON.stringify(data, null, 2);
+                            const win = window.open('', '_blank');
+                            if (win) {
+                                win.document.write('<pre>' + json + '</pre>');
+                                win.document.title = "Library Data JSON";
+                            } else {
+                                alert("Pop-up blocked! Please allow pop-ups.");
+                            }
+                        }}
+                        className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                    >
+                        View Raw Data
                     </button>
                     <button
                         onClick={handleImportClick}
