@@ -311,20 +311,28 @@ export const LibraryManager = () => {
             };
 
             const jsonString = JSON.stringify(data, null, 2);
+            if (!jsonString) throw new Error("Export failed: Data serialization error");
+
             const blob = new Blob([jsonString], { type: "application/json" });
             const url = URL.createObjectURL(blob);
 
             const link = document.createElement('a');
             link.href = url;
-            link.download = `aluminum_station_library_${new Date().toISOString().split('T')[0]}.json`;
+            link.download = `aluminum_station_${new Date().toISOString().slice(0, 10)}.json`;
+            link.style.display = 'none';
             document.body.appendChild(link);
+
             link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+
+            // Slightly longer timeout to ensure browser registers the click
+            setTimeout(() => {
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 500);
 
         } catch (err) {
             console.error('Export failed:', err);
-            alert('Export failed. Please check your browser download settings.');
+            alert(`Export failed: ${err}`);
         }
     };
 
@@ -341,7 +349,7 @@ export const LibraryManager = () => {
             try {
                 const data = JSON.parse(event.target?.result as string);
                 store.importLibrary(data);
-                alert('Library imported successfully!');
+                alert('Library imported successfully! Please refresh if you don\'t see changes immediately.');
             } catch (error) {
                 console.error('Import failed:', error);
                 alert('Failed to import library. Invalid JSON file.');
