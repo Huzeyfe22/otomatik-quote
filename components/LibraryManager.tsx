@@ -297,28 +297,58 @@ export const LibraryManager = () => {
         store.reorderTermCategories(newCategories);
     };
 
-    const handleExport = () => {
+    // Modal State
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [importText, setImportText] = useState('');
+    const [copySuccess, setCopySuccess] = useState('');
+
+    const getExportData = () => {
+        const data = {
+            productTypes: store.productTypes,
+            productSeries: store.productSeries,
+            units: store.units,
+            attributeCategories: store.attributeCategories,
+            termCategories: store.termCategories,
+            companySettings: store.companySettings,
+        };
+        return JSON.stringify(data, null, 2);
+    };
+
+    const copyToClipboard = async () => {
         try {
-            const data = {
-                productTypes: store.productTypes,
-                productSeries: store.productSeries,
-                units: store.units,
-                attributeCategories: store.attributeCategories,
-                termCategories: store.termCategories,
-                companySettings: store.companySettings,
-            };
-
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
-            const dateStr = new Date().toISOString().split('T')[0];
-            saveAs(blob, `aluminum_station_library_${dateStr}.json`);
-
+            await navigator.clipboard.writeText(getExportData());
+            setCopySuccess('Copied to clipboard!');
+            setTimeout(() => setCopySuccess(''), 2000);
         } catch (err) {
-            console.error('Export failed:', err);
-            alert('Export failed. See console for details.');
+            setCopySuccess('Failed to copy');
         }
     };
 
-    const handleImportClick = () => {
+    const handleTextImport = () => {
+        try {
+            const data = JSON.parse(importText);
+            store.importLibrary(data);
+            alert('Library imported successfully!');
+            setShowImportModal(false);
+            setImportText('');
+        } catch (error) {
+            alert('Invalid JSON data. Please check what you pasted.');
+        }
+    };
+
+    // Keep file export as secondary option
+    const handleFileExport = () => {
+        try {
+            const blob = new Blob([getExportData()], { type: "application/json;charset=utf-8" });
+            const dateStr = new Date().toISOString().split('T')[0];
+            saveAs(blob, `aluminum_station_library_${dateStr}.json`);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleFileImportClick = () => {
         fileInputRef.current?.click();
     };
 
@@ -331,7 +361,7 @@ export const LibraryManager = () => {
             try {
                 const data = JSON.parse(event.target?.result as string);
                 store.importLibrary(data);
-                alert('Library imported successfully!');
+                alert('Library imported successfully from file!');
             } catch (error) {
                 console.error('Import failed:', error);
                 alert('Failed to import library. Invalid JSON file.');
@@ -343,21 +373,90 @@ export const LibraryManager = () => {
 
     return (
         <div className="mx-auto max-w-6xl p-4">
+            {/* Export Modal */}
+            {showExportModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+                        <h3 className="mb-4 text-lg font-bold">Export Library Data</h3>
+                        <p className="mb-2 text-sm text-slate-500">Copy this text and send it to your colleague via WhatsApp/Email.</p>
+                        <textarea
+                            readOnly
+                            className="h-64 w-full rounded border border-slate-300 p-2 text-xs font-mono dark:bg-slate-800"
+                            value={getExportData()}
+                            onClick={(e) => e.currentTarget.select()}
+                        />
+                        <div className="mt-4 flex justify-end gap-2">
+                            <button onClick={() => setShowExportModal(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Close</button>
+                            <button
+                                onClick={copyToClipboard}
+                                className="rounded bg-blue-600 px-6 py-2 text-sm font-bold text-white hover:bg-blue-700"
+                            >
+                                {copySuccess || 'Copy to Clipboard'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Import Modal */}
+            {showImportModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+                        <h3 className="mb-4 text-lg font-bold">Import Library Data</h3>
+                        <p className="mb-2 text-sm text-slate-500">Paste the text you received here.</p>
+                        <textarea
+                            className="h-64 w-full rounded border border-slate-300 p-2 text-xs font-mono dark:bg-slate-800"
+                            placeholder='Paste JSON data here...'
+                            value={importText}
+                            onChange={(e) => setImportText(e.target.value)}
+                        />
+                        <div className="mt-4 flex justify-end gap-2">
+                            <button onClick={() => setShowImportModal(false)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Close</button>
+                            <button
+                                onClick={handleTextImport}
+                                disabled={!importText}
+                                className="rounded bg-green-600 px-6 py-2 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
+                            >
+                                Import Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="mb-4 flex items-center justify-between">
                 <h1 className="text-xl font-bold text-slate-900 dark:text-white">Library Manager</h1>
                 <div className="flex gap-2">
                     <button
-                        onClick={handleExport}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                        onClick={handleFileExport}
+                        className="hidden rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 md:block"
+                        title="Download as File"
                     >
-                        Export JSON
+                        Save as File
                     </button>
                     <button
-                        onClick={handleImportClick}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                        onClick={() => setShowExportModal(true)}
+                        className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-blue-700"
                     >
-                        Import JSON
+                        Export (Copy Text)
                     </button>
+
+                    <div className="h-6 w-px bg-slate-300 mx-2"></div>
+
+                    <button
+                        onClick={handleFileImportClick}
+                        className="hidden rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 md:block"
+                        title="Upload File"
+                    >
+                        Load File
+                    </button>
+                    <button
+                        onClick={() => setShowImportModal(true)}
+                        className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100"
+                    >
+                        Import (Paste Text)
+                    </button>
+
                     <input
                         type="file"
                         ref={fileInputRef}
