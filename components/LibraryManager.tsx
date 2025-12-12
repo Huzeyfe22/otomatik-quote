@@ -298,32 +298,32 @@ export const LibraryManager = () => {
     };
 
     const handleExport = () => {
-        const data = {
-            productTypes: store.productTypes,
-            productSeries: store.productSeries,
-            units: store.units,
-            attributeCategories: store.attributeCategories,
-            termCategories: store.termCategories,
-            companySettings: store.companySettings,
-        };
-
         try {
+            const data = {
+                productTypes: store.productTypes,
+                productSeries: store.productSeries,
+                units: store.units,
+                attributeCategories: store.attributeCategories,
+                termCategories: store.termCategories,
+                companySettings: store.companySettings,
+            };
+
             const jsonString = JSON.stringify(data, null, 2);
-            const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
+            // Use encodeURIComponent to ensure special characters don't break the data URI
+            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(jsonString);
 
-            const link = document.createElement('a');
-            link.href = url;
             const dateStr = new Date().toISOString().split('T')[0];
-            link.download = `aluminum_station_library_${dateStr}.json`;
+            const fileName = `aluminum_station_library_${dateStr}.json`;
 
-            // Append to body is required for Firefox
-            document.body.appendChild(link);
-            link.click();
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', fileName);
+            linkElement.style.display = 'none';
 
-            // Clean up
-            document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(url), 100);
+            document.body.appendChild(linkElement);
+            linkElement.click();
+            document.body.removeChild(linkElement);
+
         } catch (err) {
             console.error('Export failed:', err);
             alert('Export failed. Please check console.');
