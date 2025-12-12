@@ -429,10 +429,12 @@ export const useStore = create<AppState>()(
             }),
 
             importLibrary: (data) => set((state) => ({
-                ...state,
-                ...data,
-                // Ensure termCategories are merged or preserved if missing in import
-                termCategories: data.termCategories || state.termCategories
+                productTypes: data.productTypes || state.productTypes,
+                productSeries: data.productSeries || state.productSeries,
+                units: data.units || state.units,
+                attributeCategories: data.attributeCategories || state.attributeCategories,
+                termCategories: data.termCategories || state.termCategories,
+                companySettings: data.companySettings ? { ...state.companySettings, ...data.companySettings } : state.companySettings
             })),
 
             resetLibrary: () => set({
