@@ -252,6 +252,10 @@ export const LibraryManager = () => {
     const [activeTab, setActiveTab] = useState<Tab>('products');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Backup Modal State
+    const [showRawJson, setShowRawJson] = useState(false);
+    const [rawData, setRawData] = useState('');
+
     // Local state for adding new categories
     const [newAttrCategoryName, setNewAttrCategoryName] = useState('');
     const [newAttrType, setNewAttrType] = useState<'single' | 'multiple'>('single');
@@ -299,17 +303,20 @@ export const LibraryManager = () => {
         store.reorderTermCategories(newCategories);
     };
 
+    const getExportData = () => {
+        return {
+            productTypes: store.productTypes,
+            productSeries: store.productSeries,
+            units: store.units,
+            attributeCategories: store.attributeCategories,
+            termCategories: store.termCategories,
+            companySettings: store.companySettings,
+        };
+    };
+
     const handleExport = () => {
         try {
-            const data = {
-                productTypes: store.productTypes,
-                productSeries: store.productSeries,
-                units: store.units,
-                attributeCategories: store.attributeCategories,
-                termCategories: store.termCategories,
-                companySettings: store.companySettings,
-            };
-
+            const data = getExportData();
             const jsonString = JSON.stringify(data, null, 2);
             if (!jsonString) throw new Error("Export failed: Data serialization error");
 
@@ -324,15 +331,25 @@ export const LibraryManager = () => {
 
             link.click();
 
-            // Slightly longer timeout to ensure browser registers the click
             setTimeout(() => {
                 document.body.removeChild(link);
                 URL.revokeObjectURL(url);
-            }, 500);
+            }, 1000); // Increased timeout to 1s to be safe
 
         } catch (err) {
             console.error('Export failed:', err);
-            alert(`Export failed: ${err}`);
+            alert(`Export failed: ${err}. Please try the 'Copy Data' button instead.`);
+        }
+    };
+
+    const handleCopyBackup = () => {
+        try {
+            const data = getExportData();
+            const json = JSON.stringify(data, null, 2);
+            setRawData(json);
+            setShowRawJson(true);
+        } catch (err) {
+            alert('Failed to generate backup data.');
         }
     };
 
@@ -361,18 +378,61 @@ export const LibraryManager = () => {
 
     return (
         <div className="mx-auto max-w-6xl p-4">
+            {/* RAW JSON MODAL */}
+            {showRawJson && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+                    <div className="flex h-3/4 w-full max-w-3xl flex-col rounded-xl bg-white p-4 shadow-2xl dark:bg-slate-900">
+                        <div className="mb-2 flex items-center justify-between">
+                            <h3 className="text-lg font-bold">Backup Data (Copy & Save)</h3>
+                            <button onClick={() => setShowRawJson(false)} className="text-red-500 font-bold px-2">Close</button>
+                        </div>
+                        <p className="text-sm text-slate-500 mb-2">
+                            If the file download failed, copy this text below and save it as a .json file (e.g. backup.json) manually, or keep it safe.
+                        </p>
+                        <textarea
+                            readOnly
+                            value={rawData}
+                            className="flex-1 resize-none rounded-lg border border-slate-300 p-2 font-mono text-xs dark:bg-slate-800"
+                        />
+                        <div className="mt-4 flex justify-end gap-2">
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(rawData);
+                                    alert('Copied to clipboard!');
+                                }}
+                                className="rounded-lg bg-blue-600 px-4 py-2 font-bold text-white hover:bg-blue-700"
+                            >
+                                Copy to Clipboard
+                            </button>
+                            <button
+                                onClick={() => setShowRawJson(false)}
+                                className="rounded-lg bg-slate-200 px-4 py-2 font-bold text-slate-700 hover:bg-slate-300"
+                            >
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="mb-4 flex items-center justify-between">
                 <h1 className="text-xl font-bold text-slate-900 dark:text-white">Library Manager</h1>
                 <div className="flex gap-2">
                     <button
-                        onClick={handleExport}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                        onClick={handleCopyBackup}
+                        className="rounded-lg border border-slate-300 bg-yellow-50 px-3 py-1.5 text-xs font-bold text-yellow-700 hover:bg-yellow-100"
                     >
-                        Export JSON
+                        View Raw Data (Backup)
+                    </button>
+                    <button
+                        onClick={handleExport}
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                    >
+                        Export JSON (v2)
                     </button>
                     <button
                         onClick={handleImportClick}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
                     >
                         Import JSON
                     </button>
