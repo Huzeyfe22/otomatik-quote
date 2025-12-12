@@ -256,6 +256,10 @@ export const LibraryManager = () => {
     const [showRawJson, setShowRawJson] = useState(false);
     const [rawData, setRawData] = useState('');
 
+    // Import Text Modal State
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [importText, setImportText] = useState('');
+
     // Local state for adding new categories
     const [newAttrCategoryName, setNewAttrCategoryName] = useState('');
     const [newAttrType, setNewAttrType] = useState<'single' | 'multiple'>('single');
@@ -334,11 +338,11 @@ export const LibraryManager = () => {
             setTimeout(() => {
                 document.body.removeChild(link);
                 URL.revokeObjectURL(url);
-            }, 1000); // Increased timeout to 1s to be safe
+            }, 1000);
 
         } catch (err) {
             console.error('Export failed:', err);
-            alert(`Export failed: ${err}. Please try the 'Copy Data' button instead.`);
+            alert(`Export failed: ${err}. Please try the 'View Raw Data' button instead.`);
         }
     };
 
@@ -350,6 +354,20 @@ export const LibraryManager = () => {
             setShowRawJson(true);
         } catch (err) {
             alert('Failed to generate backup data.');
+        }
+    };
+
+    const handlePasteImport = () => {
+        try {
+            if (!importText.trim()) return;
+            const data = JSON.parse(importText);
+            store.importLibrary(data);
+            alert('Library imported successfully from text! Refreshing page is recommended.');
+            setShowImportModal(false);
+            setImportText('');
+        } catch (err) {
+            console.error(err);
+            alert('Invalid JSON content. Please make sure you copied the entire text from the Backup view.');
         }
     };
 
@@ -378,7 +396,7 @@ export const LibraryManager = () => {
 
     return (
         <div className="mx-auto max-w-6xl p-4">
-            {/* RAW JSON MODAL */}
+            {/* RAW JSON MODAL (EXPORT) */}
             {showRawJson && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
                     <div className="flex h-3/4 w-full max-w-3xl flex-col rounded-xl bg-white p-4 shadow-2xl dark:bg-slate-900">
@@ -387,12 +405,13 @@ export const LibraryManager = () => {
                             <button onClick={() => setShowRawJson(false)} className="text-red-500 font-bold px-2">Close</button>
                         </div>
                         <p className="text-sm text-slate-500 mb-2">
-                            If the file download failed, copy this text below and save it as a .json file (e.g. backup.json) manually, or keep it safe.
+                            Copy this text and use the 'Paste Import' button on the destination device.
                         </p>
                         <textarea
                             readOnly
                             value={rawData}
                             className="flex-1 resize-none rounded-lg border border-slate-300 p-2 font-mono text-xs dark:bg-slate-800"
+                            onClick={(e) => e.currentTarget.select()}
                         />
                         <div className="mt-4 flex justify-end gap-2">
                             <button
@@ -415,6 +434,41 @@ export const LibraryManager = () => {
                 </div>
             )}
 
+            {/* PASTE IMPORT MODAL */}
+            {showImportModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+                    <div className="flex h-3/4 w-full max-w-3xl flex-col rounded-xl bg-white p-4 shadow-2xl dark:bg-slate-900">
+                        <div className="mb-2 flex items-center justify-between">
+                            <h3 className="text-lg font-bold">Paste & Import</h3>
+                            <button onClick={() => setShowImportModal(false)} className="text-red-500 font-bold px-2">Close</button>
+                        </div>
+                        <p className="text-sm text-slate-500 mb-2">
+                            Paste the JSON text you copied from the Backup view here.
+                        </p>
+                        <textarea
+                            value={importText}
+                            onChange={(e) => setImportText(e.target.value)}
+                            placeholder='Paste JSON here ie. { "productTypes": [...] }'
+                            className="flex-1 resize-none rounded-lg border border-slate-300 p-2 font-mono text-xs dark:bg-slate-800"
+                        />
+                        <div className="mt-4 flex justify-end gap-2">
+                            <button
+                                onClick={handlePasteImport}
+                                className="rounded-lg bg-green-600 px-4 py-2 font-bold text-white hover:bg-green-700"
+                            >
+                                Import Data
+                            </button>
+                            <button
+                                onClick={() => setShowImportModal(false)}
+                                className="rounded-lg bg-slate-200 px-4 py-2 font-bold text-slate-700 hover:bg-slate-300"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="mb-4 flex items-center justify-between">
                 <h1 className="text-xl font-bold text-slate-900 dark:text-white">Library Manager</h1>
                 <div className="flex gap-2">
@@ -425,16 +479,22 @@ export const LibraryManager = () => {
                         View Raw Data (Backup)
                     </button>
                     <button
+                        onClick={() => setShowImportModal(true)}
+                        className="rounded-lg border border-slate-300 bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700 hover:bg-green-100"
+                    >
+                        Paste Import
+                    </button>
+                    <button
                         onClick={handleExport}
                         className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
                     >
-                        Export JSON (v2)
+                        Export JSON (v3)
                     </button>
                     <button
                         onClick={handleImportClick}
                         className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
                     >
-                        Import JSON
+                        Import File
                     </button>
                     <input
                         type="file"
